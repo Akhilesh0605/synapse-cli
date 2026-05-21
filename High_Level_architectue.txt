@@ -1,0 +1,48 @@
+User Input (Typer CLI)
+        ↓
+Natural Language Query
+        ↓
+LLM #1 — Intent Intelligence Layer (Ollama)
+        ↓
+Intent Classification + Task Planning
+        ↓
+Structured JSON Action Schema
+(Intent + Parameters + Context)
+        ↓
+Validation & Policy Engine
+(Schema Validation + Allowed Actions Check)
+        ↓
+LLM #2 — Shell Synthesis Layer (Ollama)
+        ↓
+Shell Type Selection
+(CMD / PowerShell / Bash)
+        ↓
+Shell Command Generation
+        ↓
+Static Command Validator
+(Dangerous Pattern Detection)
+        ↓
+Risk Evaluation Engine
+(Command + Intent + Context Analysis)
+        ↓
+LOW RISK ─────────────→ Automatic Execution
+MEDIUM RISK ──────────→ User Confirmation
+HIGH / CRITICAL RISK ─→ Block or Explicit Approval
+        ↓
+Sandboxed Command Runtime
+(subprocess execution inside Docker container)
+        ↓
+OS Shell Execution
+(CMD / PowerShell / Terminal)
+        ↓
+Execution Result / Error Capture
+(stdout + stderr + exit code)
+        ↓
+Logging & Observability Layer
+(latency + command history + approvals + failures)
+        ↓
+Cache / Database Storage
+(user input + schema + shell command + risk score + execution result)
+        ↓
+Future Context & Behavioral Memory
+(command reuse + execution patterns + analytics)
