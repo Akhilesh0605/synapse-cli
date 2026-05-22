@@ -1,2 +1,6 @@
 typer[all]
 subprocess
+json
+ollama
+requests
+pytest
