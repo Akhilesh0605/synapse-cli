@@ -2,16 +2,24 @@ import json
 import ollama
 from app.schemas.intent_schema import IntentSchema
 from pydantic import ValidationError
+from app.utils.json_utils import extract_json_object
 
-from app.llm.prompts import LLM_1_PROMPT
+from app.llm.intent_prompt import INTENT_SYSTEM_PROMPT
+
+INTENT_MODEL="llama3"
 
 def generate_command(user_query: str):
     response = ollama.chat(
-        model="llama3",
+        model=INTENT_MODEL,
+        options={
+            "temperature":0.1,
+            "top_p":0.9,
+            "seed":42
+        },
         messages=[
             {
                 "role": "system",
-                "content": LLM_1_PROMPT
+                "content": INTENT_SYSTEM_PROMPT
             },
             {
                 "role": "user",
@@ -23,7 +31,7 @@ def generate_command(user_query: str):
     content = response["message"]["content"]
 
     try:
-        parsed = json.loads(content)
+        parsed = extract_json_object(content)
         validated = IntentSchema(**parsed)
         return validated
     except json.JSONDecodeError as e:

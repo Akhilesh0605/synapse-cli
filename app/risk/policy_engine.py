@@ -80,6 +80,13 @@ BLOCKED_INTENTS: set[str] = {
     "port_scan_external",
     "flood_network",
     "disable_network_interfaces",
+
+    # system folder operations
+    "delete_system_folder",
+    "delete_system_files",
+    "modify_system_directory",
+    "remove_system32",
+    "delete_windows_folder",
 }
 
 
@@ -103,6 +110,24 @@ DANGEROUS_PARAM_PATTERNS: List[re.Pattern] = [
     re.compile(r"base64\s+--decode",  re.IGNORECASE),  # encoded payload execution
 ]
 
+# Protected paths — any parameter value matching these = BLOCK
+PROTECTED_PATHS: List[re.Pattern] = [
+    # Windows critical
+    re.compile(r"C:\\Windows",            re.IGNORECASE),
+    re.compile(r"C:\\Windows\\System32",  re.IGNORECASE),
+    re.compile(r"C:\\Windows\\SysWOW64",  re.IGNORECASE),
+    re.compile(r"C:\\Program Files",      re.IGNORECASE),
+    re.compile(r"C:\\Users\\.*\\AppData", re.IGNORECASE),
+
+    # Linux/macOS critical
+    re.compile(r"^/etc",                  re.IGNORECASE),
+    re.compile(r"^/bin",                  re.IGNORECASE),
+    re.compile(r"^/sbin",                 re.IGNORECASE),
+    re.compile(r"^/usr",                  re.IGNORECASE),
+    re.compile(r"^/boot",                 re.IGNORECASE),
+    re.compile(r"^/sys",                  re.IGNORECASE),
+    re.compile(r"^/dev",                  re.IGNORECASE),
+]
 
 # ─────────────────────────────────────────────
 # POLICY RULES — SHELL TYPE / OS CONSISTENCY
@@ -148,6 +173,7 @@ class PolicyEngine:
         self._check_unknown_action(schema)
         self._check_low_confidence(schema)
         self._check_blocked_intent(schema)
+        self._check_protected_paths(schema)
         self._check_dangerous_parameters(schema)
         self._check_shell_os_consistency(schema)
         self._check_risk_level(schema)
@@ -238,6 +264,20 @@ class PolicyEngine:
                 severity = ViolationSeverity.CRITICAL,
             ))
 
+    def _check_protected_paths(self, schema: IntentSchema) -> None:
+        for key, value in schema.parameters.items():
+            value_str = str(value)
+            for pattern in PROTECTED_PATHS:
+                if pattern.search(value_str):
+                    self._violations.append(PolicyViolation(
+                        rule     = "PROTECTED_PATH_TARGET",
+                        reason   = (
+                            f"Parameter '{key}' targets a protected system path: "
+                            f"'{value_str}'. This operation is hard-blocked."
+                        ),
+                        severity = ViolationSeverity.CRITICAL,
+                    ))
+                    break
     # ── DECISION BUILDER ─────────────────────
 
     def _build_result(self, schema: IntentSchema) -> PolicyResult:

@@ -1,0 +1,91 @@
+SynapseCLI/
+├── .env
+├── .git/
+├── .gitignore
+├── .pytest_cache/
+├── .vscode/
+├── app/
+│   ├── cli/
+│   │   ├── main.py
+│   │   └── __pycache__/
+│   ├── core/
+│   │   ├── orchestrator.py
+│   │   └── __pycache__/
+│   ├── intent_engine/
+│   │   └── .gitkeep
+│   ├── llm/
+│   │   ├── client.py
+│   │   ├── intent_prompt.py
+│   │   ├── shell_generator.py
+│   │   ├── shell_prompt.py
+│   │   └── __pycache__/
+│   ├── logger/
+│   │   └── .gitkeep
+│   ├── risk/
+│   │   ├── policy_engine.py
+│   │   └── __pycache__/
+│   ├── schemas/
+│   │   ├── command_schema.py
+│   │   ├── intent_schema.py
+│   │   └── __pycache__/
+│   ├── shell_engine/
+│   │   └── .gitkeep
+│   ├── ui/
+│   │   ├── console.py
+│   │   └── __pycache__/
+│   ├── utils/
+│   │   ├── json_utils.py
+│   │   └── __pycache__/
+│   └── validator/
+│       └── .gitkeep
+├── docs/
+│   ├── architecture.md
+│   ├── directory,md
+│   ├── High_Level_architectue.txt
+│   └── nlsh_final_architecture.svg
+├── logs/
+│   └── (empty)
+├── main.py
+├── prompts/
+│   └── .gitkeep
+├── requirements.txt
+├── setup_shellpilot.sh
+├── synapsecli/
+│   ├── .gitignore
+│   ├── Include/
+│   ├── Lib/
+│   │   └── site-packages/
+│   │       ├── (many packages, e.g. pydantic, pytest, ollama, etc.)
+│   │       ├── py.py
+│   │       └── __pycache__/
+│   ├── pyvenv.cfg
+│   └── Scripts/
+│       ├── activate
+│       ├── activate.bat
+│       ├── activate.fish
+│       ├── Activate.ps1
+│       ├── deactivate.bat
+│       ├── distro.exe
+│       ├── dotenv.exe
+│       ├── httpx.exe
+│       ├── idna.exe
+│       ├── markdown-it.exe
+│       ├── normalizer.exe
+│       ├── pip.exe
+│       ├── pip3.13.exe
+│       ├── pip3.exe
+│       ├── py.test.exe
+│       ├── pygmentize.exe
+│       ├── pytest.exe
+│       ├── python.exe
+│       ├── pythonw.exe
+│       └── typer.exe
+├── tests/
+│   ├── test_policy_engine.py
+│   ├── test_schema.py
+│   └── __pycache__/
+│       ├── test_policy_engine.cpython-313-pytest-9.0.3.pyc
+│       └── test_schema.cpython-313-pytest-9.0.3.pyc
+└── __pycache__/
+
+
