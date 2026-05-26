@@ -102,6 +102,9 @@ RULES
 - If action_type is unknown, parameters must be {} and explanation must describe what is unclear
 - ALL fields in the response format are REQUIRED
 - Never omit fields
+- If action_type is system_command, requires_shell must ALWAYS be true
+- To indicate a dangerous request, set risk_level to HIGH — never set requires_shell=false
+- requires_shell=false is ONLY for ai_response, web_navigation, and unknown
 - If a field is not applicable, use:
   - {} for empty objects
   - null for nullable fields

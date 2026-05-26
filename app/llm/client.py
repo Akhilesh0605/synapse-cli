@@ -39,4 +39,5 @@ def generate_command(user_query: str):
         return None
     except ValidationError as e:
         print(f"Validation error: {e}")
+        print(f"Raw parsed output was:",parsed)
         return None
