@@ -52,7 +52,7 @@ runtime_context = {
     "desktop":  os.path.join(os.path.expanduser("~"), "Desktop"),
 }
 
-def process_query(user_query: str) -> dict:
+def process_query(user_query: str, force_confirm: bool = False) -> dict:
 
     traces = []   # collect all stage traces
 
@@ -89,7 +89,7 @@ def process_query(user_query: str) -> dict:
         return _response("blocked", traces, reason=policy_result.reason,
                          intent=intent_result, policy=policy_result)
 
-    if policy_result.decision == PolicyDecision.REQUIRE_CONFIRMATION:
+    if policy_result.decision == PolicyDecision.REQUIRE_CONFIRMATION and not force_confirm:
         return _response("require_confirmation", traces, reason=policy_result.reason,
                          intent=intent_result, policy=policy_result)
 
@@ -124,116 +124,188 @@ def process_query(user_query: str) -> dict:
         return _response("error", traces, message="Failed to generate shell command.",
                          intent=intent_result)
 
-    start      = time.time()
-    validation = CommandValidator.validate(command_result)
+    attempt = command_result.retry_attempt
+    execution_result = None
 
-    traces.append(make_trace(
-        stage_name      = "command_validation",
-        stage_order     = 4,
-        start           = start,
-        success         = validation.safe,
-        error_message   = (
-            "; ".join(v.reason for v in validation.violations)
-            if not validation.safe else None
-        ),
-        input_snapshot  = command_result.model_dump(mode="json"),
-        output_snapshot = validation.model_dump(mode="json"),
-    ))
+    while True:
+        start      = time.time()
+        validation = CommandValidator.validate(command_result)
 
-    if not validation.safe:
-        return _response("blocked", traces, reason="Command failed static validation.",
-                         intent=intent_result, policy=policy_result,
-                         command=command_result, violations=validation.violations)
-    
-    start = time.time()
-
-    semantic_result=SemanticValidator.validate(
-        intent_result,
-        command_result
-    )
-
-    traces.append(make_trace(
-
-        stage_name="semantic_validation",
-        stage_order=5,
-        start=start,
-        success=semantic_result.safe,
-        error_message=(
-                "; ".join(v.reason for v in semantic_result.violations)
-                if not semantic_result.safe else None
-            ),
-        input_snapshot=command_result.model_dump(mode="json"),
-        output_snapshot=semantic_result.model_dump(mode="json"),
-    ))
-    
-    if not semantic_result.safe:
-        return _response(
-            "blocked",
-            traces,
-            reason="Semantic validation failed.",
-            intent=intent_result,
-            policy=policy_result,
-            command=command_result,
-            semantic=semantic_result,
-        )
-    start=time.time()
-    execution_policy_result = (
-    ExecutionPolicyEngine.derive_policy(
-        risk_level=command_result.expected_risk,
-        capability=semantic_result.capability,
-    )
-    )
-    traces.append(make_trace(
-        stage_name="execution_policy",
-        stage_order=6,
-        start=start,
-        success=execution_policy_result.allowed,
-        error_message=None if execution_policy_result.allowed else execution_policy_result.governance_reason,
-        input_snapshot={
-            "risk_level": command_result.expected_risk,
-            "capability": semantic_result.capability,
-        },
-        output_snapshot=execution_policy_result.model_dump(),
-    ))
-    
-    if not execution_policy_result.allowed:
-        raise RuntimeError(
-            execution_policy_result.governance_reason
-        )
-
-    # --- Username substitution for cross-platform compatibility ---
-    import os
-    username = os.environ.get("USERNAME") or os.environ.get("USER")
-    if username:
-        # Replace {username}, $USER, $USERNAME in command string and parameters
-        if hasattr(command_result, "command") and isinstance(command_result.command, str):
-            command_result.command = (
-                command_result.command
-                .replace("{username}", username)
-                .replace("$USER", username)
-                .replace("$USERNAME", username)
-            )
-        if hasattr(command_result, "parameters") and isinstance(command_result.parameters, dict):
-            for k, v in command_result.parameters.items():
-                if isinstance(v, str):
-                    command_result.parameters[k] = (
-                        v.replace("{username}", username)
-                         .replace("$USER", username)
-                         .replace("$USERNAME", username)
-                    )
-
-    start=time.time()
-    execution_result = CommandExecutor.execute(command_result,execution_policy_result)
-
-    traces.append(make_trace(
-            stage_name      = "execution",
-            stage_order     = 7,
+        traces.append(make_trace(
+            stage_name      = "command_validation",
+            stage_order     = 4,
             start           = start,
-            success         = execution_result.success,
-            error_message   = execution_result.error_message,
+            success         = validation.safe,
+            error_message   = (
+                "; ".join(v.reason for v in validation.violations)
+                if not validation.safe else None
+            ),
             input_snapshot  = command_result.model_dump(mode="json"),
-            output_snapshot = execution_result.model_dump(mode="json"),
+            output_snapshot = validation.model_dump(mode="json"),
         ))
+
+        if not validation.safe:
+            return _response("blocked", traces, reason="Command failed static validation.",
+                             intent=intent_result, policy=policy_result,
+                             command=command_result, violations=validation.violations)
+
+        start = time.time()
+
+        semantic_result=SemanticValidator.validate(
+            intent_result,
+            command_result
+        )
+
+        traces.append(make_trace(
+
+            stage_name="semantic_validation",
+            stage_order=5,
+            start=start,
+            success=semantic_result.safe,
+            error_message=(
+                    "; ".join(v.reason for v in semantic_result.violations)
+                    if not semantic_result.safe else None
+                ),
+            input_snapshot=command_result.model_dump(mode="json"),
+            output_snapshot=semantic_result.model_dump(mode="json"),
+        ))
+
+        if not semantic_result.safe:
+            return _response(
+                "blocked",
+                traces,
+                reason="Semantic validation failed.",
+                intent=intent_result,
+                policy=policy_result,
+                command=command_result,
+                semantic=semantic_result,
+            )
+
+        start=time.time()
+        execution_policy_result = (
+        ExecutionPolicyEngine.derive_policy(
+            risk_level=command_result.expected_risk,
+            capability=semantic_result.capability,
+        )
+        )
+        traces.append(make_trace(
+            stage_name="execution_policy",
+            stage_order=6,
+            start=start,
+            success=execution_policy_result.allowed,
+            error_message=None if execution_policy_result.allowed else execution_policy_result.governance_reason,
+            input_snapshot={
+                "risk_level": command_result.expected_risk,
+                "capability": semantic_result.capability,
+            },
+            output_snapshot=execution_policy_result.model_dump(),
+        ))
+
+        if not execution_policy_result.allowed:
+            return _response(
+                "blocked",
+                traces,
+                reason=execution_policy_result.governance_reason,
+                intent=intent_result,
+                policy=policy_result,
+                command=command_result,
+                execution_policy=execution_policy_result,
+            )
+
+        # --- Username substitution for cross-platform compatibility ---
+        import os
+        username = os.environ.get("USERNAME") or os.environ.get("USER")
+        if username:
+            if hasattr(command_result, "command") and isinstance(command_result.command, str):
+                command_result.command = (
+                    command_result.command
+                    .replace("{username}", username)
+                    .replace("$USER", username)
+                    .replace("$USERNAME", username)
+                )
+            if hasattr(command_result, "parameters") and isinstance(command_result.parameters, dict):
+                for k, v in command_result.parameters.items():
+                    if isinstance(v, str):
+                        command_result.parameters[k] = (
+                            v.replace("{username}", username)
+                             .replace("$USER", username)
+                             .replace("$USERNAME", username)
+                        )
+
+        # --- Dynamic executable path resolution for all system/app launches ---
+        from app.utils.find_executable import find_executable
+        import re
+        # Only attempt for commands that look like app launches (start, start-process, open, explorer, etc.)
+        if hasattr(command_result, "command") and isinstance(command_result.command, str):
+            cmd = command_result.command.strip()
+            # Regex for launch patterns: e.g., start app, start 'C:\\Path\\App.exe', start-process -FilePath 'app', open app, explorer app
+            launch_patterns = [
+                r"^(start|open|explorer)\\s+['\"]?([^'\"]+)['\"]?",
+                r"start-process\\s+-filepath\\s+['\"]?([^'\"]+)['\"]?",
+            ]
+            for pat in launch_patterns:
+                m = re.search(pat, cmd, re.IGNORECASE)
+                if m:
+                    if pat.startswith("^(start"):
+                        app_token = m.group(2)
+                    else:
+                        app_token = m.group(1)
+
+                    # If a full path was provided but it doesn't exist, try resolving by basename
+                    app_token_expanded = os.path.expandvars(os.path.expanduser(app_token))
+                    if os.path.isabs(app_token_expanded) and not os.path.isfile(app_token_expanded):
+                        app_base = os.path.splitext(os.path.basename(app_token_expanded))[0]
+                    else:
+                        app_base = os.path.splitext(os.path.basename(app_token_expanded))[0]
+
+                    exe_path = find_executable(app_base)
+                    if exe_path:
+                        if pat.startswith("^(start"):
+                            command_result.command = re.sub(pat, f"{m.group(1)} \"{exe_path}\"", cmd, flags=re.IGNORECASE)
+                        else:
+                            command_result.command = re.sub(r"-filepath\\s+['\"]?([^'\"]+)['\"]?", f"-FilePath '{exe_path}'", cmd, flags=re.IGNORECASE)
+                    break
+
+        start=time.time()
+        execution_result = CommandExecutor.execute(command_result,execution_policy_result)
+
+        traces.append(make_trace(
+                stage_name      = "execution",
+                stage_order     = 7,
+                start           = start,
+                success         = execution_result.success,
+                error_message   = execution_result.error_message,
+                input_snapshot  = command_result.model_dump(mode="json"),
+                output_snapshot = execution_result.model_dump(mode="json"),
+            ))
+
+        if execution_result.success:
+            break
+
+        if attempt >= 2:
+            break
+
+        attempt += 1
+        retry_start = time.time()
+        retry_command = generate_shell_command(
+            intent_result,
+            retry_attempt=attempt,
+            stderr=execution_result.stderr,
+            exit_code=execution_result.return_code,
+        )
+        traces.append(make_trace(
+            stage_name      = "shell_generation",
+            stage_order     = 3,
+            start           = retry_start,
+            success         = retry_command is not None,
+            error_message   = None if retry_command else "LLM #2 returned None",
+            input_snapshot  = intent_result.model_dump(mode="json"),
+            output_snapshot = retry_command.model_dump(mode="json") if retry_command else None,
+        ))
+        if retry_command is None:
+            return _response("error", traces, message="Failed to generate shell command.",
+                             intent=intent_result)
+        command_result = retry_command
         
 
     logger.info(

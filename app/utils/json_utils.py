@@ -69,3 +69,10 @@ def extract_json_object(text: str) -> dict :
 
     logger.debug("Raw LLM output: %s", text)
     raise ValueError("Found opening brace but no matching closing brace")
+
+
+def strip_json_fences(text: str) -> str:
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    return text.strip()

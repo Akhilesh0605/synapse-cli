@@ -1,7 +1,5 @@
 import json
 import logging
-import platform
-import re
 from typing import Optional
 
 import ollama
@@ -10,26 +8,12 @@ from pydantic import ValidationError
 from app.schemas.intent_schema import IntentSchema
 from app.schemas.command_schema import ShellCommandSchema
 from app.llm.shell_prompt import SHELL_SYSTEM_PROMPT
+from app.utils.os_detect import detect_os_context
+from app.utils.json_utils import strip_json_fences
 
 logger = logging.getLogger(__name__)
 
 SHELL_MODEL = "llama3"
-
-
-def detect_os_context() -> str:
-    system = platform.system().lower()
-    if system == "windows":
-        return "windows"
-    elif system == "darwin":
-        return "macos"
-    return "linux"
-
-
-def strip_json_fences(text: str) -> str:
-    text = text.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-    return text.strip()
 
 
 def generate_shell_command(

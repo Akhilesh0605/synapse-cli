@@ -23,10 +23,10 @@ INTENT_ALLOWED_COMMANDS = {
 
     # network
     "ping_host":                {"ping"},
-    "show_network_info":        {"ipconfig", "ifconfig", "netstat"},
+    "show_network_info":        {"ipconfig", "ifconfig", "netstat", "ip"},
     "dns_lookup":               {"nslookup"},
     "check_ip_address":         {"ipconfig", "ifconfig", "ip"},
-    "show_network_info":        {"ipconfig", "ifconfig", "netstat", "ip"},
+    "show_ip_address":          {"ipconfig", "ifconfig", "ip"},
 
     # runtime
     "show_python_version":      {"python", "python3"},
@@ -45,18 +45,16 @@ INTENT_ALLOWED_COMMANDS = {
 
     # system info
     "show_disk_usage":          {"df", "du", "get-psdrive"},
-    "show_system_info":         {"uname", "get-host", "hostname"},
-    "show_date":                {"date", "get-date"},
-    "echo_message":             {"echo"},
-
     "show_system_info": {
         "get-host",
-        "get-computerinfo", 
+        "get-computerinfo",
         "hostname",
         "uname",
-        "systeminfo",          
-        "get-wmiobject",       
+        "systeminfo",
+        "get-wmiobject",
     },
+    "show_date":                {"date", "get-date"},
+    "echo_message":             {"echo"},
 
     "open_application": {"start", "open", "explorer"},
 
@@ -64,5 +62,5 @@ INTENT_ALLOWED_COMMANDS = {
     # browser/application launch
     "open_chrome": {"start"},
     # application launch
-    "open_ollama_app": {"start-process"},
+    "open_ollama_app": {"start", "start-process"},
 }

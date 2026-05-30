@@ -11,9 +11,34 @@ from app.schemas.execution_policy_schema import ExecutionPolicyResult
 logger = logging.getLogger(__name__)
 
 
+class PolicyViolationError(RuntimeError):
+    pass
+
+
 
 
 class CommandExecutor:
+
+    @classmethod
+    def _enforce_policy(cls, schema: ShellCommandSchema, policy: ExecutionPolicyResult) -> None:
+        base_command = schema.command.strip().split()[0].lower()
+
+        network_commands = {
+            "curl", "wget", "ping", "nslookup", "netstat", "ipconfig", "ifconfig", "ip"
+        }
+        write_commands = {
+            "new-item", "mkdir", "copy-item", "move-item", "cp", "mv"
+        }
+        launch_commands = {"start", "start-process", "open", "explorer"}
+
+        if not policy.allow_network and base_command in network_commands:
+            raise PolicyViolationError("Network access is not allowed by policy.")
+
+        if not policy.allow_filesystem_write and base_command in write_commands:
+            raise PolicyViolationError("Filesystem write is not allowed by policy.")
+
+        if not policy.allow_process_spawn and base_command in launch_commands:
+            raise PolicyViolationError("Process spawn is not allowed by policy.")
 
     @classmethod
     def _build_cmd_list(cls, schema: ShellCommandSchema) -> list:
@@ -39,6 +64,7 @@ class CommandExecutor:
                     schema.command, schema.shell_type, timeout)
 
         try:
+            cls._enforce_policy(schema, policy)
             result = subprocess.run(
                 cmd_list,
                 shell          = False,
@@ -71,6 +97,27 @@ class CommandExecutor:
                 error_message      = result.stderr.strip() if not success else None,
                 started_at         = started_at,
                 completed_at       = completed_at,
+            )
+
+        except PolicyViolationError as e:
+            end = time.time()
+            completed_at = datetime.now()
+            logger.warning("Policy violation: %s", e)
+            return ExecutionResult(
+                request_id         = str(uuid.uuid4()),
+                success           = False,
+                stdout            = "",
+                stderr            = str(e),
+                return_code       = -1,
+                execution_time_ms = int((end - start) * 1000),
+                timed_out         = False,
+                killed            = False,
+                command           = schema.command,
+                shell_type        = schema.shell_type,
+                retry_attempt     = schema.retry_attempt,
+                error_message     = str(e),
+                started_at        = started_at,
+                completed_at      = completed_at,
             )
 
         except subprocess.TimeoutExpired:

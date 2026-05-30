@@ -3,12 +3,14 @@ import ollama
 from app.schemas.intent_schema import IntentSchema
 from pydantic import ValidationError
 from app.utils.json_utils import extract_json_object
+from app.utils.os_detect import detect_os_context
 
 from app.llm.intent_prompt import INTENT_SYSTEM_PROMPT
 
 INTENT_MODEL="llama3"
 
 def generate_command(user_query: str):
+    runtime_prompt = f"[OS: {detect_os_context()}]\n{user_query}"
     response = ollama.chat(
         model=INTENT_MODEL,
         format="json",
@@ -24,7 +26,7 @@ def generate_command(user_query: str):
             },
             {
                 "role": "user",
-                "content": user_query
+                "content": runtime_prompt
             }
         ]
     )

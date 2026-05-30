@@ -169,25 +169,19 @@ def test_detects_backtick_injection():
 
 
 def test_detects_subshell_injection():
-    schema = ShellCommandSchema(
-        shell_type="bash",
-        command="echo $(whoami)",
-        explanation="Subshell injection",
-        expected_risk="LOW",
-        requires_confirmation=False,
-        requires_sudo=False,
-        confidence="HIGH",
-        retry_attempt=0,
-        error_context=None,
-    )
-
-    result = CommandValidator.validate(schema)
-
-    assert result.safe is False
-
-    rules = [v.rule for v in result.violations]
-
-    assert "COMMAND_INJECTION" in rules
+    import pydantic
+    with pytest.raises(pydantic.ValidationError):
+        ShellCommandSchema(
+            shell_type="bash",
+            command="echo $(whoami)",
+            explanation="Subshell injection",
+            expected_risk="LOW",
+            requires_confirmation=False,
+            requires_sudo=False,
+            confidence="HIGH",
+            retry_attempt=0,
+            error_context=None,
+        )
 
 
 # ─────────────────────────────────────────────
@@ -226,25 +220,19 @@ def test_empty_command():
 
 
 def test_detects_newline_chaining():
-    schema = ShellCommandSchema(
-        shell_type="bash",
-        command="ls\nwhoami",
-        explanation="Newline command chaining",
-        expected_risk="LOW",
-        requires_confirmation=False,
-        requires_sudo=False,
-        confidence="HIGH",
-        retry_attempt=0,
-        error_context=None,
-    )
-
-    result = CommandValidator.validate(schema)
-
-    assert result.safe is False
-
-    rules = [v.rule for v in result.violations]
-
-    assert "COMMAND_CHAINING" in rules
+    import pydantic
+    with pytest.raises(pydantic.ValidationError):
+        ShellCommandSchema(
+            shell_type="bash",
+            command="ls\nwhoami",
+            explanation="Newline command chaining",
+            expected_risk="LOW",
+            requires_confirmation=False,
+            requires_sudo=False,
+            confidence="HIGH",
+            retry_attempt=0,
+            error_context=None,
+        )
 
 
 # ─────────────────────────────────────────────
@@ -300,26 +288,20 @@ def test_detects_curl_pipe_bash():
 # VALIDATION EDGE CASES
 # ─────────────────────────────────────────────
 
-def test_empty_command():
-    schema = ShellCommandSchema(
-        shell_type="cmd",
-        command="",
-        explanation="Empty command",
-        expected_risk="LOW",
-        requires_confirmation=False,
-        requires_sudo=False,
-        confidence="LOW",
-        retry_attempt=0,
-        error_context=None,
-    )
-
-    result = CommandValidator.validate(schema)
-
-    assert result.safe is False
-
-    rules = [v.rule for v in result.violations]
-
-    assert "EMPTY_COMMAND" in rules
+def test_empty_command_validator():
+    import pydantic
+    with pytest.raises(pydantic.ValidationError):
+        ShellCommandSchema(
+            shell_type="cmd",
+            command="",
+            explanation="Empty command",
+            expected_risk="LOW",
+            requires_confirmation=False,
+            requires_sudo=False,
+            confidence="LOW",
+            retry_attempt=0,
+            error_context=None,
+        )
 
 
 def test_command_too_long():

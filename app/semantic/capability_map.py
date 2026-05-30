@@ -43,6 +43,7 @@ COMMAND_CAPABILITIES = {
     "nslookup":       "network.read",
     "curl":           "network.read",
     "wget":           "network.read",
+    "ip":             "network.read",
 
     # runtime info
     "python":         "runtime.info",
@@ -77,7 +78,7 @@ COMMAND_CAPABILITIES = {
 
     # process launch (powershell)
     "start-process": "system.launch",
-
-    "explorer": "system.launch",
-    "start-processs":"system.launch",
+    "start":         "system.launch",
+    "open":          "system.launch",
+    "explorer":      "system.launch",
 }

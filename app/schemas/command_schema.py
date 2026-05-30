@@ -38,7 +38,7 @@ class ShellCommandSchema(BaseModel):
     @model_validator(mode="after")
     def validate_consistency(self):
         # Block command chaining
-        if any(op in self.command for op in ["&&", "||", ";;",">>","$(" "\n"]):
+        if any(op in self.command for op in ["&&", "||", ";;", ">>", "$(", "\n"]):
             raise ValueError(
                 "command must be a single command — chaining operators not allowed"
             )
