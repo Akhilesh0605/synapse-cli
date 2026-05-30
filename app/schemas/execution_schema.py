@@ -1,9 +1,11 @@
 from typing import Optional
 from pydantic import BaseModel, Field
-import datetime
+from datetime import datetime
 
 
 class ExecutionResult(BaseModel):
+    class Config:
+        arbitrary_types_allowed = True
 
     request_id:str
 

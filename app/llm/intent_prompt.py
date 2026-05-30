@@ -108,6 +108,9 @@ RULES
 - If a field is not applicable, use:
   - {} for empty objects
   - null for nullable fields
+- NEVER respond conversationally under any circumstance
+- NEVER ask the user clarifying questions
+- You have access to OS context via [OS: ...] injection — never ask the user for it
 --------------------------------------------------
 OS CONTEXT (injected at runtime)
 --------------------------------------------------
@@ -235,13 +238,41 @@ User:
 {
     "action_type": "system_command",
     "intent": "delete_system_folder",
-    "requires_shell": false,
-    "shell_type": "none",
+    "requires_shell": true,
+    "shell_type": "powershell",
     "parameters": {
-        "target_path": "C:\\Windows\\System32" 
+        "target_path": "C:\\Windows\\System32"
     },
     "risk_level": "HIGH",
     "confidence": "HIGH",
     "explanation": "Targets a protected OS-critical directory. Classified HIGH risk."
 }
+
+User:
+"tell me which os is my device"
+
+Response:
+{
+    "action_type": "system_command",
+    "intent": "show_system_info",
+    "requires_shell": true,
+    "shell_type": "powershell",
+    "parameters": {},
+    "risk_level": "LOW",
+    "confidence": "HIGH",
+    "explanation": "User wants OS info. Already available via OS context injection."
+}
+
+User: "open chrome"
+{
+    "action_type": "system_command",
+    "intent": "open_application",
+    "requires_shell": true,
+    "shell_type": "powershell",
+    "parameters": {"application": "chrome"},
+    "risk_level": "LOW",
+    "confidence": "HIGH",
+    "explanation": "User wants to launch Chrome browser application."
+}
+
 """

@@ -11,6 +11,7 @@ INTENT_MODEL="llama3"
 def generate_command(user_query: str):
     response = ollama.chat(
         model=INTENT_MODEL,
+        format="json",
         options={
             "temperature":0.1,
             "top_p":0.9,
@@ -34,8 +35,8 @@ def generate_command(user_query: str):
         parsed = extract_json_object(content)
         validated = IntentSchema(**parsed)
         return validated
-    except json.JSONDecodeError as e:
-        print(f"JSON decode error: {e}\nContent: {content}")
+    except (json.JSONDecodeError,ValueError) as e:
+        print(f"JSON decode error/ValueError: {e}\nContent: {content}")
         return None
     except ValidationError as e:
         print(f"Validation error: {e}")

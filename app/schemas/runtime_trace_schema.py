@@ -11,9 +11,11 @@ class RuntimeStageTrace(BaseModel):
         "policy_evaluation",
         "shell_generation",
         "command_validation",
+        "semantic_validation",
+        "execution_policy",
         "execution",
     ]
-    stage_order:  int = Field(..., ge=1, le=5)  # position in pipeline
+    stage_order:  int = Field(..., ge=1)  # position in pipeline
 
     # timing
     started_at:   float = Field(..., ge=0)       # unix timestamp

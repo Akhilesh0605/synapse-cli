@@ -9,6 +9,9 @@ from app.validator.command_validator import CommandValidator
 from app.risk.policy_engine import PolicyEngine, PolicyDecision
 from app.utils.os_detect import detect_os_context
 from app.schemas.runtime_trace_schema import RuntimeStageTrace
+from app.execution.executor import CommandExecutor
+from app.semantic.semantic_validator import SemanticValidator
+from app.execution.execution_policy import ExecutionPolicyEngine
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +42,15 @@ def make_trace(
     )
 
 
+import os
+import getpass
 
+runtime_context = {
+    "os":       detect_os_context(),
+    "username": getpass.getuser(),
+    "home":     os.path.expanduser("~"),
+    "desktop":  os.path.join(os.path.expanduser("~"), "Desktop"),
+}
 
 def process_query(user_query: str) -> dict:
 
@@ -133,6 +144,97 @@ def process_query(user_query: str) -> dict:
         return _response("blocked", traces, reason="Command failed static validation.",
                          intent=intent_result, policy=policy_result,
                          command=command_result, violations=validation.violations)
+    
+    start = time.time()
+
+    semantic_result=SemanticValidator.validate(
+        intent_result,
+        command_result
+    )
+
+    traces.append(make_trace(
+
+        stage_name="semantic_validation",
+        stage_order=5,
+        start=start,
+        success=semantic_result.safe,
+        error_message=(
+                "; ".join(v.reason for v in semantic_result.violations)
+                if not semantic_result.safe else None
+            ),
+        input_snapshot=command_result.model_dump(mode="json"),
+        output_snapshot=semantic_result.model_dump(mode="json"),
+    ))
+    
+    if not semantic_result.safe:
+        return _response(
+            "blocked",
+            traces,
+            reason="Semantic validation failed.",
+            intent=intent_result,
+            policy=policy_result,
+            command=command_result,
+            semantic=semantic_result,
+        )
+    start=time.time()
+    execution_policy_result = (
+    ExecutionPolicyEngine.derive_policy(
+        risk_level=command_result.expected_risk,
+        capability=semantic_result.capability,
+    )
+    )
+    traces.append(make_trace(
+        stage_name="execution_policy",
+        stage_order=6,
+        start=start,
+        success=execution_policy_result.allowed,
+        error_message=None if execution_policy_result.allowed else execution_policy_result.governance_reason,
+        input_snapshot={
+            "risk_level": command_result.expected_risk,
+            "capability": semantic_result.capability,
+        },
+        output_snapshot=execution_policy_result.model_dump(),
+    ))
+    
+    if not execution_policy_result.allowed:
+        raise RuntimeError(
+            execution_policy_result.governance_reason
+        )
+
+    # --- Username substitution for cross-platform compatibility ---
+    import os
+    username = os.environ.get("USERNAME") or os.environ.get("USER")
+    if username:
+        # Replace {username}, $USER, $USERNAME in command string and parameters
+        if hasattr(command_result, "command") and isinstance(command_result.command, str):
+            command_result.command = (
+                command_result.command
+                .replace("{username}", username)
+                .replace("$USER", username)
+                .replace("$USERNAME", username)
+            )
+        if hasattr(command_result, "parameters") and isinstance(command_result.parameters, dict):
+            for k, v in command_result.parameters.items():
+                if isinstance(v, str):
+                    command_result.parameters[k] = (
+                        v.replace("{username}", username)
+                         .replace("$USER", username)
+                         .replace("$USERNAME", username)
+                    )
+
+    start=time.time()
+    execution_result = CommandExecutor.execute(command_result,execution_policy_result)
+
+    traces.append(make_trace(
+            stage_name      = "execution",
+            stage_order     = 7,
+            start           = start,
+            success         = execution_result.success,
+            error_message   = execution_result.error_message,
+            input_snapshot  = command_result.model_dump(mode="json"),
+            output_snapshot = execution_result.model_dump(mode="json"),
+        ))
+        
 
     logger.info(
         "Pipeline complete | stages: %d | total_ms: %d",
@@ -140,10 +242,20 @@ def process_query(user_query: str) -> dict:
         sum(t.latency_ms for t in traces),
     )
 
-    return _response("success", traces,
-                     intent=intent_result,
-                     policy=policy_result,
-                     command=command_result)
+    final_status = (
+    "success"
+    if execution_result.success
+    else "execution_failed"
+    )
+
+    return _response(
+    final_status,
+    traces,
+    intent=intent_result,
+    policy=policy_result,
+    command=command_result,
+    execution=execution_result,
+    )
 
 
 
@@ -172,5 +284,4 @@ def _response(status: str, traces: list, **kwargs) -> dict:
                 (t.stage_name for t in traces if not t.success), None
             ),
         },
-        **serialized,
-    }
+       **serialized,}

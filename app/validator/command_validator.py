@@ -120,7 +120,9 @@ SAFE_COMMAND_PREFIXES = {
         "get-childitem", "dir", "ls", "get-process", "get-service",
         "get-content", "select-string", "where-object", "get-item",
         "get-location", "get-date", "get-host", "get-command",
-        "get-help", "test-path", "measure-object", "get-psdrive",
+        "get-help", "test-path", "measure-object", "get-psdrive", "python",
+        "whoami", "python3", "dir", "pwd", "echo", "ipconfig","get-computerinfo",
+        "new-item","get-container","docker","start","start-process",
     ],
     "cmd": [
         "dir", "echo", "type", "find", "findstr", "where",

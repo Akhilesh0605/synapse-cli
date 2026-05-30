@@ -47,6 +47,17 @@ Rules:
 - Always safely quote paths containing spaces.
 
 --------------------------------------------------
+PREFERRED COMMANDS
+--------------------------------------------------
+| Intent                  | Shell      | Command          |
+|-------------------------|------------|------------------|
+| list_docker_containers  | any        | docker ps -a     |
+| docker_status           | any        | docker info      |
+| list_docker_images      | any        | docker images    |
+| git_status              | any        | git status       |
+| git_log                 | any        | git log --oneline|
+
+--------------------------------------------------
 BLOCKED COMMANDS
 --------------------------------------------------
 Never generate commands containing:
@@ -76,7 +87,6 @@ Set requires_confirmation to true when:
 Set requires_confirmation to false only for:
 - Read-only operations (ls, cat, pwd, find, grep, ps, echo)
 - Non-destructive informational commands
-
 --------------------------------------------------
 SUDO RULES
 --------------------------------------------------
@@ -158,4 +168,5 @@ EXAMPLES
     "retry_attempt": 1,
     "error_context": "pip: command not found"
 }
+
 """

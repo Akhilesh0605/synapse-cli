@@ -302,7 +302,7 @@ def test_detects_curl_pipe_bash():
 
 def test_empty_command():
     schema = ShellCommandSchema(
-        shell_type="bash",
+        shell_type="cmd",
         command="",
         explanation="Empty command",
         expected_risk="LOW",
