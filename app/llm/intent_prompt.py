@@ -64,6 +64,11 @@ Use:
 - bash for Linux/macOS shell operations
 - none if no shell execution is required
 
+QUERY TYPE RULES (only for ai_response action_type):
+- static_knowledge → factual, timeless info (what is docker, explain git, who is linus)
+- realtime_data    → requires current data (weather, news, stock prices, sports scores)
+- none             → for all non ai_response action types
+
 --------------------------------------------------
 RISK LEVELS
 --------------------------------------------------
@@ -215,6 +220,42 @@ Response:
     "confidence": "HIGH",
     "explanation": "This is an informational query that does not require shell execution."
 }
+
+  User:
+  "find todays weather"
+
+  Response:
+  {
+    "action_type": "ai_response",
+    "intent": "show_weather_forecast",
+    "query_type": "realtime_data",
+    "requires_shell": false,
+    "shell_type": "none",
+    "parameters": {
+      "topic": "todays weather"
+    },
+    "risk_level": "LOW",
+    "confidence": "HIGH",
+    "explanation": "User wants current weather, which requires realtime data."
+  }
+
+  User:
+  "what is docker"
+
+  Response:
+  {
+    "action_type": "ai_response",
+    "intent": "explain_docker",
+    "query_type": "static_knowledge",
+    "requires_shell": false,
+    "shell_type": "none",
+    "parameters": {
+      "topic": "docker"
+    },
+    "risk_level": "LOW",
+    "confidence": "HIGH",
+    "explanation": "User wants a factual explanation of Docker."
+  }
 
 User:
 "open docker documentation"

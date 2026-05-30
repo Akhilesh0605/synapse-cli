@@ -16,6 +16,7 @@ class IntentSchema(BaseModel):
         pattern=r'^[a-z][a-z0-9_]*$',
         description="Machine-readable intent in snake_case"
     )
+    query_type: Literal["static_knowledge", "realtime_data", "none"] = "none"
 
     requires_shell: bool
 

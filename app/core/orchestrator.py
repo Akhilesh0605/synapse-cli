@@ -3,7 +3,7 @@ import logging
 from typing import Optional
 from datetime import datetime,timezone
 
-from app.llm.client import generate_command
+from app.llm.client import generate_command, generate_ai_response
 from app.llm.shell_generator import generate_shell_command
 from app.validator.command_validator import CommandValidator
 from app.risk.policy_engine import PolicyEngine, PolicyDecision
@@ -98,8 +98,32 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
                          intent=intent_result, policy=policy_result)
 
     if intent_result.action_type == "ai_response":
-        return _response("ai_response", traces,
-                         intent=intent_result, policy=policy_result)
+        if intent_result.query_type == "realtime_data":
+            import webbrowser
+            query = intent_result.parameters.get("topic", user_query)
+            webbrowser.open(f"https://www.google.com/search?q={query}")
+            return _response(
+                "web_search",
+                traces,
+                intent=intent_result,
+                message=f"Opened search for: {query}",
+            )
+
+        if intent_result.query_type == "static_knowledge":
+            answer = generate_ai_response(user_query)
+            return _response(
+                "ai_response",
+                traces,
+                intent=intent_result,
+                answer=answer,
+            )
+
+        return _response(
+            "ai_response",
+            traces,
+            intent=intent_result,
+            policy=policy_result,
+        )
 
     if intent_result.action_type == "web_navigation":
         return _response("web_navigation", traces,

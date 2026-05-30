@@ -9,6 +9,21 @@ from app.llm.intent_prompt import INTENT_SYSTEM_PROMPT
 
 INTENT_MODEL="llama3"
 
+
+def generate_ai_response(user_query: str) -> str:
+    response = ollama.chat(
+        model   = INTENT_MODEL,
+        options = {"temperature": 0.7, "seed": 42},
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Answer clearly and concisely.",
+            },
+            {"role": "user", "content": user_query},
+        ]
+    )
+    return response.message.content
+
 def generate_command(user_query: str):
     runtime_prompt = f"[OS: {detect_os_context()}]\n{user_query}"
     response = ollama.chat(
