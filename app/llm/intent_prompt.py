@@ -42,7 +42,9 @@ ACTION TYPES
   - open github
   - open docker docs
   - search python documentation
-
+- For web_navigation with video/search intent, always use search URLs not direct video URLs
+- YouTube search: https://www.youtube.com/results?search_query=<query>
+- Never guess specific video IDs — you don't have access to YouTube's index
 4. unknown
 - Request is too ambiguous to classify
 - Use when intent cannot be determined with confidence

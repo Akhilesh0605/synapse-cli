@@ -126,9 +126,15 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
         )
 
     if intent_result.action_type == "web_navigation":
-        return _response("web_navigation", traces,
-                         intent=intent_result, policy=policy_result,
-                         url=intent_result.parameters.get("url"))
+        url = intent_result.parameters.get("url")
+
+        if url and "watch?v=" in url:
+    
+            search_query = intent_result.parameters.get("search_query", user_query)
+            url = f"https://www.youtube.com/results?search_query={search_query.replace(' ', '+')}"
+
+        elif not url:
+            url = f"https://www.google.com/search?q={user_query.replace(' ', '+')}"
 
 
     start          = time.time()

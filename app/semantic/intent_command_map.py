@@ -61,6 +61,7 @@ INTENT_ALLOWED_COMMANDS = {
 
     # browser/application launch
     "open_chrome": {"start"},
+    "play_youtube_video": {"start", "open", "explorer"},
     # application launch
     "open_ollama_app": {"start", "start-process"},
 }
