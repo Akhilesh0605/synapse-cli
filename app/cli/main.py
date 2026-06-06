@@ -4,6 +4,10 @@ from rich.prompt import Confirm
 from app.ui.console import console
 from app.core.orchestrator import process_query
 from app.formatter.output_formatter import format_response
+from app.database.connection import create_tables
+
+# Initialize database on app startup
+create_tables()
 
 app = typer.Typer()
 

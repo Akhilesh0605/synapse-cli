@@ -104,6 +104,24 @@ CAPABILITY_POLICIES = {
         "allow_process_spawn": True,
         "sandbox_required": False,
     },
+
+    "system.media": {
+        "execution_mode": ExecutionMode.NORMAL,
+        "timeout_seconds": 15,
+        "allow_network": False,
+        "allow_filesystem_write": False,
+        "allow_process_spawn": False,
+        "sandbox_required": False,
+    },
+
+    "system.display": {
+        "execution_mode": ExecutionMode.NORMAL,
+        "timeout_seconds": 15,
+        "allow_network": False,
+        "allow_filesystem_write": False,
+        "allow_process_spawn": False,
+        "sandbox_required": False,
+    },
 }
 
 

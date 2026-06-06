@@ -1,5 +1,7 @@
 import time
 import logging
+import json
+import uuid
 from typing import Optional
 from datetime import datetime,timezone
 
@@ -12,6 +14,10 @@ from app.schemas.runtime_trace_schema import RuntimeStageTrace
 from app.execution.executor import CommandExecutor
 from app.semantic.semantic_validator import SemanticValidator
 from app.execution.execution_policy import ExecutionPolicyEngine
+from app.utils.windows_volume import apply_windows_volume_intent
+from app.utils.windows_brightness import apply_windows_brightness_intent
+from app.database.repository import save_command_history
+from app.database.memory import update_memory, get_memory_context
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +61,20 @@ runtime_context = {
 def process_query(user_query: str, force_confirm: bool = False) -> dict:
 
     traces = []   # collect all stage traces
+    
+    # Inject behavioral memory context into runtime query
+    try:
+        memory_context = get_memory_context()
+        if memory_context:
+            enriched_query = f"[MEMORY: {json.dumps(memory_context)}]\n{user_query}"
+        else:
+            enriched_query = user_query
+    except Exception as e:
+        logger.debug(f"Memory context injection failed: {str(e)}")
+        enriched_query = user_query
 
     start         = time.time()
-    intent_result = generate_command(user_query)
+    intent_result = generate_command(enriched_query)
 
     traces.append(make_trace(
         stage_name      = "intent_generation",
@@ -135,6 +152,125 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
 
         elif not url:
             url = f"https://www.google.com/search?q={user_query.replace(' ', '+')}"
+
+    volume_intents = {
+        "increase_volume",
+        "decrease_volume",
+        "set_volume",
+        "adjust_volume",
+        "mute_volume",
+    }
+    if intent_result.intent in volume_intents:
+        if detect_os_context() != "windows":
+            return _response(
+                "blocked",
+                traces,
+                reason="Volume control is only implemented for Windows in this build.",
+                intent=intent_result,
+                policy=policy_result,
+            )
+
+        start = time.time()
+        percent = int(intent_result.parameters.get("percent", 1) or 1)
+        volume_result = apply_windows_volume_intent(intent_result.intent, percent)
+
+        from app.schemas.execution_schema import ExecutionResult
+        import uuid
+
+        execution_result = ExecutionResult(
+            request_id=str(uuid.uuid4()),
+            success=volume_result.success,
+            stdout=volume_result.message if volume_result.success else "",
+            stderr="" if volume_result.success else volume_result.message,
+            return_code=0 if volume_result.success else 1,
+            execution_time_ms=int((time.time() - start) * 1000),
+            timed_out=False,
+            killed=False,
+            command=f"{intent_result.intent}:{percent}",
+            shell_type=intent_result.shell_type,
+            retry_attempt=0,
+            started_at=datetime.now(),
+            completed_at=datetime.now(),
+            error_message=None if volume_result.success else volume_result.message,
+        )
+
+        traces.append(make_trace(
+            stage_name="execution",
+            stage_order=3,
+            start=start,
+            success=execution_result.success,
+            error_message=execution_result.error_message,
+            input_snapshot=intent_result.model_dump(mode="json"),
+            output_snapshot=execution_result.model_dump(mode="json"),
+        ))
+
+        final_status = "success" if execution_result.success else "execution_failed"
+        return _response(
+            final_status,
+            traces,
+            intent=intent_result,
+            policy=policy_result,
+            execution=execution_result,
+        )
+
+    brightness_intents = {
+        "increase_screen_brightness",
+        "decrease_screen_brightness",
+        "set_screen_brightness",
+        "adjust_screen_brightness",
+    }
+    if intent_result.intent in brightness_intents:
+        if detect_os_context() != "windows":
+            return _response(
+                "blocked",
+                traces,
+                reason="Screen brightness control is only implemented for Windows in this build.",
+                intent=intent_result,
+                policy=policy_result,
+            )
+
+        start = time.time()
+        level = int(intent_result.parameters.get("level", 1) or 1)
+        brightness_result = apply_windows_brightness_intent(intent_result.intent, level)
+
+        from app.schemas.execution_schema import ExecutionResult
+        import uuid
+
+        execution_result = ExecutionResult(
+            request_id=str(uuid.uuid4()),
+            success=brightness_result.success,
+            stdout=brightness_result.message if brightness_result.success else "",
+            stderr="" if brightness_result.success else brightness_result.message,
+            return_code=0 if brightness_result.success else 1,
+            execution_time_ms=int((time.time() - start) * 1000),
+            timed_out=False,
+            killed=False,
+            command=f"{intent_result.intent}:{level}",
+            shell_type=intent_result.shell_type,
+            retry_attempt=0,
+            started_at=datetime.now(),
+            completed_at=datetime.now(),
+            error_message=None if brightness_result.success else brightness_result.message,
+        )
+
+        traces.append(make_trace(
+            stage_name="execution",
+            stage_order=3,
+            start=start,
+            success=execution_result.success,
+            error_message=execution_result.error_message,
+            input_snapshot=intent_result.model_dump(mode="json"),
+            output_snapshot=execution_result.model_dump(mode="json"),
+        ))
+
+        final_status = "success" if execution_result.success else "execution_failed"
+        return _response(
+            final_status,
+            traces,
+            intent=intent_result,
+            policy=policy_result,
+            execution=execution_result,
+        )
 
 
     start          = time.time()
@@ -376,7 +512,7 @@ def _response(status: str, traces: list, **kwargs) -> dict:
         else:
             serialized[key] = value
 
-    return {
+    response = {
         "status": status,
         "trace": {
             "stages":       [t.model_dump(mode="json") for t in traces],
@@ -386,4 +522,34 @@ def _response(status: str, traces: list, **kwargs) -> dict:
                 (t.stage_name for t in traces if not t.success), None
             ),
         },
-       **serialized,}
+       **serialized,
+    }
+    
+    # Save to database (wrapped in try/except to never crash pipeline)
+    try:
+        # Generate request_id if not present
+        if "request_id" not in response:
+            response["request_id"] = str(uuid.uuid4())
+        
+        # Add pipeline stages for tracing
+        response["pipeline_stages"] = response["trace"]["stages"]
+        
+        # Save command history
+        save_command_history(response)
+        
+        # Update behavioral memory if successful execution
+        if status == "success" and "execution" in serialized:
+            execution = serialized.get("execution", {})
+            intent = serialized.get("intent", {})
+            command = serialized.get("command", {})
+            
+            if intent.get("intent") and command.get("command"):
+                update_memory(
+                    intent=intent.get("intent"),
+                    shell_type=intent.get("shell_type", "unknown"),
+                    command=command.get("command"),
+                )
+    except Exception as e:
+        logger.debug(f"Database operation failed (non-fatal): {str(e)}")
+    
+    return response

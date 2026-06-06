@@ -154,6 +154,8 @@ system_command:
   - process_name  (string, optional) — for process operations
   - package_name  (string, optional) — for install operations
   - flags         (list,   optional) — extra modifiers
+  - percent       (integer, optional) — relative change for volume/media intents
+  - level         (integer, optional) — absolute display brightness level
 
 web_navigation:
   - url           (string, required) — full URL to open
@@ -317,5 +319,47 @@ User: "open chrome"
     "confidence": "HIGH",
     "explanation": "User wants to launch Chrome browser application."
 }
+
+  User: "increase volume by 3%"
+  {
+    "action_type": "system_command",
+    "intent": "increase_volume",
+    "requires_shell": true,
+    "shell_type": "powershell",
+    "parameters": {
+      "percent": 3
+    },
+    "risk_level": "LOW",
+    "confidence": "HIGH",
+    "explanation": "User wants to increase the Windows system volume slightly."
+  }
+
+  User: "increase screen brightness by 3%"
+  {
+    "action_type": "system_command",
+    "intent": "increase_screen_brightness",
+    "requires_shell": true,
+    "shell_type": "powershell",
+    "parameters": {
+      "level": 3
+    },
+    "risk_level": "LOW",
+    "confidence": "HIGH",
+    "explanation": "User wants to increase the Windows screen brightness slightly."
+  }
+
+  User: "open youtube"
+  {
+    "action_type": "system_command",
+    "intent": "open_youtube",
+    "requires_shell": true,
+    "shell_type": "powershell",
+    "parameters": {
+      "url": "https://www.youtube.com"
+    },
+    "risk_level": "LOW",
+    "confidence": "HIGH",
+    "explanation": "User wants to open the YouTube website."
+  }
 
 """

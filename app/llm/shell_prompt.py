@@ -46,6 +46,24 @@ Rules:
 - If you cannot produce a safe corrected command, set command to null
 - Always safely quote paths containing spaces.
 
+UNIVERSAL APP LAUNCH RULE
+--------------------------------------------------
+For any "open application" intent on Windows:
+  → Start-Process "<app-name or URI>"
+
+For Linux:
+  → xdg-open "<app-name>"
+
+For macOS:
+  → open "<app-name>"
+
+Never use: Start-App, Launch-App, or any invented cmdlets.
+Examples:
+  open chrome     → Start-Process "chrome"
+  open settings   → Start-Process "ms-settings:"
+  open youtube    → Start-Process "https://www.youtube.com"
+  open notepad    → Start-Process "notepad"
+  open calculator → Start-Process "calc"
 --------------------------------------------------
 PREFERRED COMMANDS
 --------------------------------------------------

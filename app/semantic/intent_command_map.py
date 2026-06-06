@@ -56,12 +56,25 @@ INTENT_ALLOWED_COMMANDS = {
     "show_date":                {"date", "get-date"},
     "echo_message":             {"echo"},
 
-    "open_application": {"start", "open", "explorer"},
+    "open_application":  {"start-process", "xdg-open", "open"},
+    "open_settings":     {"start-process", "xdg-open", "open"},
+    "open_youtube":      {"start-process", "xdg-open", "open"},
+    "play_youtube_video":{"start-process", "xdg-open", "open"},
+    "adjust_volume":     {"get-volume", "set-volume"},
+    "increase_volume":   {"get-volume", "set-volume"},
+    "decrease_volume":   {"get-volume", "set-volume"},
+    "set_volume":        {"get-volume", "set-volume"},
+    "mute_volume":       {"get-volume", "set-volume"},
+    "adjust_screen_brightness": {"powercfg"},
+    "increase_screen_brightness": {"powercfg"},
+    "decrease_screen_brightness": {"powercfg"},
+    "set_screen_brightness": {"powercfg"},
 
 
-    # browser/application launch
-    "open_chrome": {"start"},
-    "play_youtube_video": {"start", "open", "explorer"},
+    # browser/application launch    
+    "open_chrome": {"start", "start-process"},
+    "open_github": {"start", "start-process", "open", "explorer"},
+    "play_youtube_video":{"start", "start-process", "open", "explorer"},
     # application launch
     "open_ollama_app": {"start", "start-process"},
 }

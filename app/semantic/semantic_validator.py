@@ -10,6 +10,17 @@ from app.schemas.command_schema import ShellCommandSchema
 
 class SemanticValidator:
 
+    _LAUNCH_ALIASES = {
+        "start": "start-process",
+        "open": "start-process",
+        "explorer": "start-process",
+    }
+
+    @classmethod
+    def _normalize_base_command(cls, command: str) -> str:
+        base_command = Path(command.strip().split()[0]).stem.lower()
+        return cls._LAUNCH_ALIASES.get(base_command, base_command)
+
     @classmethod
     def validate(
         cls,
@@ -20,11 +31,7 @@ class SemanticValidator:
         violations   = []
 
         # ── Normalize base command ───────────────────────
-        base_command = (
-            Path(command.command.strip().split()[0])
-            .stem
-            .lower()
-        )
+        base_command = cls._normalize_base_command(command.command)
 
         # ── Check 1: intent has a known mapping ──────────
         allowed_commands = INTENT_ALLOWED_COMMANDS.get(intent.intent)

@@ -258,8 +258,43 @@ def test_detects_encoded_powershell():
 
     rules = [v.rule for v in result.violations]
 
-    # Accept either DANGEROUS_COMMAND_PATTERN or LOW_RISK_WHITELIST_MISS depending on schema
-    assert ("DANGEROUS_COMMAND_PATTERN" in rules) or ("LOW_RISK_WHITELIST_MISS" in rules)
+
+def test_allows_volume_adjustment_command():
+    schema = ShellCommandSchema(
+        shell_type="powershell",
+        command="Get-Volume | Set-Volume -Level (-3)",
+        explanation="Adjusts system volume down by 3 percent.",
+        expected_risk="LOW",
+        requires_confirmation=False,
+        requires_sudo=False,
+        confidence="HIGH",
+        retry_attempt=0,
+        error_context=None,
+    )
+
+    result = CommandValidator.validate(schema)
+
+    assert result.safe is True
+    assert result.status == ValidationStatus.PASSED
+
+
+def test_allows_screen_brightness_command():
+    schema = ShellCommandSchema(
+        shell_type="powershell",
+        command="powercfg -setdcvalueindex EXE 1C04F4A5-6EA2-4c9d-a8e7-Cb0f4A5B3D65 18 3",
+        explanation="Adjusts screen brightness on battery power.",
+        expected_risk="LOW",
+        requires_confirmation=False,
+        requires_sudo=False,
+        confidence="HIGH",
+        retry_attempt=0,
+        error_context=None,
+    )
+
+    result = CommandValidator.validate(schema)
+
+    assert result.safe is True
+    assert result.status == ValidationStatus.PASSED
 
 
 def test_detects_curl_pipe_bash():

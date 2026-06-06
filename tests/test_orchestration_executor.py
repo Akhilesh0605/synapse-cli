@@ -1,6 +1,7 @@
 import pytest
 
 from app.core.orchestrator import process_query
+from app.schemas.intent_schema import IntentSchema
 
 
 # ---------------------------------------------------------
@@ -203,3 +204,87 @@ def test_execution_not_triggered_when_validation_fails():
     ]
 
     assert "execution" not in stage_names
+
+
+def test_pipeline_handles_volume_intent_without_shell_synthesis(monkeypatch):
+
+    intent = IntentSchema(
+        action_type="system_command",
+        intent="increase_volume",
+        requires_shell=True,
+        shell_type="powershell",
+        parameters={"percent": 3},
+        risk_level="LOW",
+        confidence="HIGH",
+        explanation="User wants to increase system volume.",
+    )
+
+    monkeypatch.setattr(
+        "app.core.orchestrator.generate_command",
+        lambda user_query: intent,
+    )
+    monkeypatch.setattr(
+        "app.core.orchestrator.detect_os_context",
+        lambda: "windows",
+    )
+    monkeypatch.setattr(
+        "app.core.orchestrator.apply_windows_volume_intent",
+        lambda intent_name, percent: type(
+            "Result",
+            (),
+            {"success": True, "message": "Adjusted system volume by 3% using media keys."},
+        )(),
+    )
+
+    result = process_query("increase volume by 3%")
+
+    assert result["status"] == "success"
+
+    stage_names = [s["stage_name"] for s in result["trace"]["stages"]]
+
+    assert stage_names == ["intent_generation", "policy_evaluation", "execution"]
+
+    assert result["execution"]["success"] is True
+    assert "Adjusted system volume" in result["execution"]["stdout"]
+
+
+def test_pipeline_handles_brightness_intent_without_shell_synthesis(monkeypatch):
+
+    intent = IntentSchema(
+        action_type="system_command",
+        intent="increase_screen_brightness",
+        requires_shell=True,
+        shell_type="powershell",
+        parameters={"level": 3},
+        risk_level="LOW",
+        confidence="HIGH",
+        explanation="User wants to increase screen brightness.",
+    )
+
+    monkeypatch.setattr(
+        "app.core.orchestrator.generate_command",
+        lambda user_query: intent,
+    )
+    monkeypatch.setattr(
+        "app.core.orchestrator.detect_os_context",
+        lambda: "windows",
+    )
+    monkeypatch.setattr(
+        "app.core.orchestrator.apply_windows_brightness_intent",
+        lambda intent_name, level: type(
+            "Result",
+            (),
+            {"success": True, "message": "Increased screen brightness to 53%."},
+        )(),
+    )
+
+    result = process_query("increase screen brightness by 3%")
+
+    assert result["status"] == "success"
+
+    stage_names = [s["stage_name"] for s in result["trace"]["stages"]]
+
+    assert stage_names == ["intent_generation", "policy_evaluation", "execution"]
+
+    assert result["execution"]["success"] is True
+    assert "Increased screen brightness" in result["execution"]["stdout"]

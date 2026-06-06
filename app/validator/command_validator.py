@@ -123,6 +123,8 @@ SAFE_COMMAND_PREFIXES = {
         "get-help", "test-path", "measure-object", "get-psdrive", "python",
         "whoami", "python3", "dir", "pwd", "echo", "ipconfig","get-computerinfo",
         "new-item","get-container","docker","start","start-process",
+        "get-volume", "set-volume",
+        "powercfg",
     ],
     "cmd": [
         "dir", "echo", "type", "find", "findstr", "where",

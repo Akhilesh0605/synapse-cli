@@ -81,4 +81,11 @@ COMMAND_CAPABILITIES = {
     "start":         "system.launch",
     "open":          "system.launch",
     "explorer":      "system.launch",
+
+    # media control
+    "get-volume":    "system.media",
+    "set-volume":    "system.media",
+
+    # display control
+    "powercfg":      "system.display",
 }
