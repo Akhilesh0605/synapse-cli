@@ -12,6 +12,7 @@ from app.risk.policy_engine import PolicyEngine, PolicyDecision
 from app.utils.os_detect import detect_os_context
 from app.schemas.runtime_trace_schema import RuntimeStageTrace
 from app.execution.executor import CommandExecutor
+from app.execution.sandbox import SandboxExecutor
 from app.semantic.semantic_validator import SemanticValidator
 from app.execution.execution_policy import ExecutionPolicyEngine
 from app.utils.windows_volume import apply_windows_volume_intent
@@ -61,6 +62,7 @@ runtime_context = {
 def process_query(user_query: str, force_confirm: bool = False) -> dict:
 
     traces = []   # collect all stage traces
+    runtime_context["last_query"] = user_query
     
     # Inject behavioral memory context into runtime query
     try:
@@ -433,7 +435,10 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
                     break
 
         start=time.time()
-        execution_result = CommandExecutor.execute(command_result,execution_policy_result)
+        if execution_policy_result.sandbox_required:
+            execution_result = SandboxExecutor.execute(command_result, execution_policy_result)
+        else:
+            execution_result = CommandExecutor.execute(command_result, execution_policy_result)
 
         traces.append(make_trace(
                 stage_name      = "execution",
@@ -491,6 +496,7 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
     traces,
     intent=intent_result,
     policy=policy_result,
+    execution_policy=execution_policy_result,
     command=command_result,
     execution=execution_result,
     )
@@ -524,13 +530,24 @@ def _response(status: str, traces: list, **kwargs) -> dict:
         },
        **serialized,
     }
+
+    execution_policy = serialized.get("execution_policy")
+    policy = serialized.get("policy")
+    active_policy = execution_policy if isinstance(execution_policy, dict) else policy
+    if isinstance(active_policy, dict) and active_policy.get("execution_mode"):
+        response["trace"]["execution_mode"] = active_policy.get("execution_mode")
+        response["trace"]["sandbox_required"] = bool(active_policy.get("sandbox_required"))
+
+    if "execution" in serialized and isinstance(serialized["execution"], dict):
+        response.setdefault("request_id", serialized["execution"].get("request_id"))
+
+    if not response.get("request_id"):
+        response["request_id"] = serialized.get("request_id") or str(uuid.uuid4())
+    if not response.get("query"):
+        response["query"] = runtime_context.get("last_query", "")
     
     # Save to database (wrapped in try/except to never crash pipeline)
     try:
-        # Generate request_id if not present
-        if "request_id" not in response:
-            response["request_id"] = str(uuid.uuid4())
-        
         # Add pipeline stages for tracing
         response["pipeline_stages"] = response["trace"]["stages"]
         

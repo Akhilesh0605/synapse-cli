@@ -1,6 +1,6 @@
-# SynapseCLI SQLite Database Layer - Build Summary
+# SynapseCLI SQLite Database Layer - Summary
 
-## FILES CREATED
+## FILES 
 
 | File | Purpose |
 |------|---------|

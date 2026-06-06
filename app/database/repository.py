@@ -25,11 +25,15 @@ def save_command_history(response: dict) -> None:
             if not request_id:
                 logger.debug("save_command_history: skipping record without request_id")
                 return
+
+            trace_payload = response.get("pipeline_stages")
+            if trace_payload is None:
+                trace_payload = response.get("trace", {}).get("stages", [])
             
             # Create CommandHistory record
             command_history = CommandHistory(
                 request_id=request_id,
-                query=response.get("query", ""),
+                query=response.get("query") or response.get("user_query") or "",
                 intent=response.get("intent"),
                 action_type=response.get("action_type"),
                 shell_type=response.get("shell_type"),
@@ -44,12 +48,11 @@ def save_command_history(response: dict) -> None:
             session.add(command_history)
             
             # Save pipeline traces if present
-            stages = response.get("pipeline_stages", [])
-            for idx, stage in enumerate(stages, 1):
+            for idx, stage in enumerate(trace_payload or [], 1):
                 pipeline_trace = PipelineTrace(
                     request_id=request_id,
-                    stage_name=stage.get("name"),
-                    stage_order=idx,
+                    stage_name=stage.get("name") or stage.get("stage_name") or f"stage_{idx}",
+                    stage_order=stage.get("stage_order") or idx,
                     latency_ms=stage.get("latency_ms"),
                     success=stage.get("success"),
                     error_message=stage.get("error_message"),

@@ -25,13 +25,23 @@ def format_trace(response: dict) -> None:
     if not trace:
         return
 
+    policy = response.get("policy", {}) if isinstance(response.get("policy", {}), dict) else {}
     stages      = trace.get("stages", [])
     total_ms    = trace.get("total_ms", 0)
     failed      = trace.get("failed_stage")
+    execution_mode = trace.get("execution_mode") or policy.get("execution_mode")
+    sandbox_required = trace.get("sandbox_required")
+    if sandbox_required is None:
+        sandbox_required = policy.get("sandbox_required")
 
     console.print()
     console.print("  [dim]── Pipeline Trace ──────────────────────[/dim]")
     console.print()
+
+    if execution_mode:
+        suffix = " (sandbox required)" if sandbox_required else ""
+        console.print(f"  [dim]Execution mode: {execution_mode}{suffix}[/dim]")
+        console.print()
 
     for stage in stages:
         name       = stage.get("stage_name", "")
