@@ -1,9 +1,11 @@
 import json
+import os 
 import logging
 from typing import Optional
 
-import ollama
+from groq import Groq
 from pydantic import ValidationError
+from dotenv import load_dotenv
 
 from app.schemas.intent_schema import IntentSchema
 from app.schemas.command_schema import ShellCommandSchema
@@ -13,8 +15,11 @@ from app.utils.json_utils import strip_json_fences
 
 logger = logging.getLogger(__name__)
 
-SHELL_MODEL = "llama3"
 
+SHELL_MODEL = "openai/gpt-oss-120b"
+load_dotenv()
+
+client=Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 def generate_shell_command(
     intent:        IntentSchema,
@@ -38,19 +43,17 @@ def generate_shell_command(
 
     # LLM call
     try:
-        response   = ollama.chat(
+        response   = client.chat.completions.create(
             model    = SHELL_MODEL,
-            options={
-            "temperature":0.1,
-            "top_p":0.9,
-            "seed":42
-        },
+            temperature=0.1,
+            seed=42,
+            top_p=0.9,
             messages = [
                 {"role": "system", "content": SHELL_SYSTEM_PROMPT},
                 {"role": "user",   "content": runtime_prompt},
             ]
         )
-        raw_output = response.message.content
+        raw_output = response.choices[0].message.content
 
     except Exception as e:
         logger.error("Ollama call failed: %s", e)

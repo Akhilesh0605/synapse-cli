@@ -1,3 +1,5 @@
-typer[all]
+typer
+rich
+pydantic
+sqlalchemy
 ollama
-pytest

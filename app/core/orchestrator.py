@@ -1,6 +1,9 @@
 import time
 import logging
 import json
+import os
+import re
+import webbrowser
 import uuid
 from typing import Optional
 from datetime import datetime,timezone
@@ -11,8 +14,10 @@ from app.validator.command_validator import CommandValidator
 from app.risk.policy_engine import PolicyEngine, PolicyDecision
 from app.utils.os_detect import detect_os_context
 from app.schemas.runtime_trace_schema import RuntimeStageTrace
+from app.schemas.execution_schema import ExecutionResult
 from app.execution.executor import CommandExecutor
 from app.execution.sandbox import SandboxExecutor
+from app.utils.find_executable import find_executable
 from app.semantic.semantic_validator import SemanticValidator
 from app.execution.execution_policy import ExecutionPolicyEngine
 from app.utils.windows_volume import apply_windows_volume_intent
@@ -48,8 +53,6 @@ def make_trace(
         output_snapshot = output_snapshot,
     )
 
-
-import os
 import getpass
 
 runtime_context = {
@@ -62,7 +65,6 @@ runtime_context = {
 def process_query(user_query: str, force_confirm: bool = False) -> dict:
 
     traces = []   # collect all stage traces
-    runtime_context["last_query"] = user_query
     
     # Inject behavioral memory context into runtime query
     try:
@@ -89,7 +91,7 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
     ))
 
     if intent_result is None:
-        return _response("error", traces, message="Failed to generate intent schema.")
+        return _response("error", traces, message="Failed to generate intent schema.", query=user_query)
 
     start         = time.time()
     engine        = PolicyEngine(os_context=detect_os_context())
@@ -106,15 +108,15 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
 
     if policy_result.decision == PolicyDecision.BLOCK:
         return _response("blocked", traces, reason=policy_result.reason,
-                         intent=intent_result, policy=policy_result)
+                         intent=intent_result, policy=policy_result, query=user_query)
 
     if policy_result.decision == PolicyDecision.REQUIRE_CONFIRMATION and not force_confirm:
         return _response("require_confirmation", traces, reason=policy_result.reason,
-                         intent=intent_result, policy=policy_result)
+                         intent=intent_result, policy=policy_result, query=user_query)
 
     if policy_result.decision == PolicyDecision.CLARIFY:
         return _response("clarify", traces, reason=policy_result.reason,
-                         intent=intent_result, policy=policy_result)
+                         intent=intent_result, policy=policy_result, query=user_query)
 
     if intent_result.action_type == "ai_response":
         if intent_result.query_type == "realtime_data":
@@ -126,6 +128,7 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
                 traces,
                 intent=intent_result,
                 message=f"Opened search for: {query}",
+                query=user_query,
             )
 
         if intent_result.query_type == "static_knowledge":
@@ -142,18 +145,27 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
             traces,
             intent=intent_result,
             policy=policy_result,
+            query=user_query,
         )
 
     if intent_result.action_type == "web_navigation":
         url = intent_result.parameters.get("url")
 
         if url and "watch?v=" in url:
-    
             search_query = intent_result.parameters.get("search_query", user_query)
             url = f"https://www.youtube.com/results?search_query={search_query.replace(' ', '+')}"
 
         elif not url:
             url = f"https://www.google.com/search?q={user_query.replace(' ', '+')}"
+
+        return _response(
+            "web_navigation",
+            traces,
+            intent=intent_result,
+            policy=policy_result,
+            url=url,
+            query=user_query,
+        )
 
     volume_intents = {
         "increase_volume",
@@ -170,14 +182,12 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
                 reason="Volume control is only implemented for Windows in this build.",
                 intent=intent_result,
                 policy=policy_result,
+                query=user_query,
             )
 
         start = time.time()
         percent = int(intent_result.parameters.get("percent", 1) or 1)
         volume_result = apply_windows_volume_intent(intent_result.intent, percent)
-
-        from app.schemas.execution_schema import ExecutionResult
-        import uuid
 
         execution_result = ExecutionResult(
             request_id=str(uuid.uuid4()),
@@ -213,6 +223,7 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
             intent=intent_result,
             policy=policy_result,
             execution=execution_result,
+            query=user_query,
         )
 
     brightness_intents = {
@@ -229,14 +240,12 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
                 reason="Screen brightness control is only implemented for Windows in this build.",
                 intent=intent_result,
                 policy=policy_result,
+                query=user_query,
             )
 
         start = time.time()
         level = int(intent_result.parameters.get("level", 1) or 1)
         brightness_result = apply_windows_brightness_intent(intent_result.intent, level)
-
-        from app.schemas.execution_schema import ExecutionResult
-        import uuid
 
         execution_result = ExecutionResult(
             request_id=str(uuid.uuid4()),
@@ -272,6 +281,7 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
             intent=intent_result,
             policy=policy_result,
             execution=execution_result,
+            query=user_query,
         )
 
 
@@ -290,7 +300,7 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
 
     if command_result is None:
         return _response("error", traces, message="Failed to generate shell command.",
-                         intent=intent_result)
+                         intent=intent_result, query=user_query)
 
     attempt = command_result.retry_attempt
     execution_result = None
@@ -315,7 +325,8 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
         if not validation.safe:
             return _response("blocked", traces, reason="Command failed static validation.",
                              intent=intent_result, policy=policy_result,
-                             command=command_result, violations=validation.violations)
+                             command=command_result, violations=validation.violations,
+                             query=user_query)
 
         start = time.time()
 
@@ -347,6 +358,7 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
                 policy=policy_result,
                 command=command_result,
                 semantic=semantic_result,
+                query=user_query,
             )
 
         start=time.time()
@@ -378,10 +390,10 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
                 policy=policy_result,
                 command=command_result,
                 execution_policy=execution_policy_result,
+                query=user_query,
             )
 
         # --- Username substitution for cross-platform compatibility ---
-        import os
         username = os.environ.get("USERNAME") or os.environ.get("USER")
         if username:
             if hasattr(command_result, "command") and isinstance(command_result.command, str):
@@ -401,8 +413,6 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
                         )
 
         # --- Dynamic executable path resolution for all system/app launches ---
-        from app.utils.find_executable import find_executable
-        import re
         # Only attempt for commands that look like app launches (start, start-process, open, explorer, etc.)
         if hasattr(command_result, "command") and isinstance(command_result.command, str):
             cmd = command_result.command.strip()
@@ -475,7 +485,7 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
         ))
         if retry_command is None:
             return _response("error", traces, message="Failed to generate shell command.",
-                             intent=intent_result)
+                             intent=intent_result, query=user_query)
         command_result = retry_command
         
 
@@ -499,6 +509,7 @@ def process_query(user_query: str, force_confirm: bool = False) -> dict:
     execution_policy=execution_policy_result,
     command=command_result,
     execution=execution_result,
+    query=user_query,
     )
 
 
@@ -544,15 +555,15 @@ def _response(status: str, traces: list, **kwargs) -> dict:
     if not response.get("request_id"):
         response["request_id"] = serialized.get("request_id") or str(uuid.uuid4())
     if not response.get("query"):
-        response["query"] = runtime_context.get("last_query", "")
+        response["query"] = kwargs.get("query", "")
     
     # Save to database (wrapped in try/except to never crash pipeline)
     try:
-        # Add pipeline stages for tracing
-        response["pipeline_stages"] = response["trace"]["stages"]
-        
         # Save command history
-        save_command_history(response)
+        save_command_history({
+            **response,
+            "pipeline_stages": response["trace"]["stages"],
+        })
         
         # Update behavioral memory if successful execution
         if status == "success" and "execution" in serialized:

@@ -1,39 +1,43 @@
 import json
-import ollama
-from app.schemas.intent_schema import IntentSchema
+import os
+
+from groq import Groq
+from dotenv import load_dotenv
 from pydantic import ValidationError
+
+from app.schemas.intent_schema import IntentSchema
 from app.utils.json_utils import extract_json_object
 from app.utils.os_detect import detect_os_context
-
 from app.llm.intent_prompt import INTENT_SYSTEM_PROMPT
 
-INTENT_MODEL="llama3"
+load_dotenv()
 
+INTENT_MODEL="openai/gpt-oss-120b"
+
+client=Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 def generate_ai_response(user_query: str) -> str:
-    response = ollama.chat(
-        model   = INTENT_MODEL,
-        options = {"temperature": 0.7, "seed": 42},
+    response = client.chat.completions.create(
+        model=INTENT_MODEL,
+        temperature=0.7,
+        seed=42,
         messages = [
             {
                 "role": "system",
                 "content": "You are a helpful assistant. Answer clearly and concisely.",
             },
             {"role": "user", "content": user_query},
-        ]
+        ],
     )
-    return response.message.content
+    return response.choices[0].message.content
 
 def generate_command(user_query: str):
     runtime_prompt = f"[OS: {detect_os_context()}]\n{user_query}"
-    response = ollama.chat(
+    response = client.chat.completions.create(
         model=INTENT_MODEL,
-        format="json",
-        options={
-            "temperature":0.1,
-            "top_p":0.9,
-            "seed":42
-        },
+        response_format={"type":"json_object"},
+        temperature=0.7,
+        seed=42,
         messages=[
             {
                 "role": "system",
@@ -42,11 +46,11 @@ def generate_command(user_query: str):
             {
                 "role": "user",
                 "content": runtime_prompt
-            }
-        ]
+            },
+        ],
     )
 
-    content = response["message"]["content"]
+    content = response.choices[0].message.content
 
     try:
         parsed = extract_json_object(content)

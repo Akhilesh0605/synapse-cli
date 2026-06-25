@@ -6,9 +6,6 @@ from app.core.orchestrator import process_query
 from app.formatter.output_formatter import format_response
 from app.database.connection import create_tables
 
-# Initialize database on app startup
-create_tables()
-
 app = typer.Typer()
 
 @app.command()
@@ -16,6 +13,7 @@ def run(
     query: str,
     debug: bool = typer.Option(False, "--debug", "-d", help="Show pipeline trace")
 ):
+    create_tables()
     console.print(f"[bold cyan]Received Query[/bold cyan] : {query}")
 
     result = process_query(query)
@@ -28,6 +26,9 @@ def run(
             console.print("\n  [dim]Cancelled.[/dim]\n")
             return
         result = process_query(query, force_confirm=True)
+        if result.get("status") == "require_confirmation":
+            console.print("\n  [dim]Could not proceed — approval loop detected.[/dim]\n")
+            return
 
     # Handle web navigation
     if result.get("status") == "web_navigation":
